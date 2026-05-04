@@ -20,7 +20,7 @@ from tkinter.scrolledtext import ScrolledText
 
 
 APP_NAME = "System Cleanup Utility"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.2.1"
 DEFAULT_ASSET_NAME = "SystemCleanupUtility.exe"
 UPDATE_CONFIG_FILE = "release_config.json"
 WINDOWS_REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
@@ -625,11 +625,14 @@ class CleanupApp:
         self.root.title(APP_NAME)
         self.root.geometry("900x760")
         self.root.minsize(780, 620)
+        self.style = ttk.Style(root)
+        self.default_ttk_theme = "vista" if "vista" in self.style.theme_names() else self.style.theme_use()
 
         self.targets = get_targets()
         self.target_vars: dict[str, tk.BooleanVar] = {}
         self.target_boxes: list[ttk.Checkbutton] = []
         self.preset_buttons: list[ttk.Button] = []
+        self.scroll_canvases: list[tk.Canvas] = []
         self.release_config = get_update_config()
         self.latest_release: ReleaseInfo | None = None
 
@@ -637,6 +640,7 @@ class CleanupApp:
         self.worker_thread: threading.Thread | None = None
         self.action_running = False
         self.update_check_running = False
+        self.dark_mode = False
 
         self.status_var = tk.StringVar(value="Ready.")
         self.summary_var = tk.StringVar(
@@ -646,6 +650,7 @@ class CleanupApp:
         self.update_var = tk.StringVar(value=self.get_initial_update_text())
 
         self.build_ui()
+        self.apply_theme()
         self.refresh_controls()
 
         if getattr(sys, "frozen", False) and self.release_config.configured:
@@ -658,13 +663,13 @@ class CleanupApp:
 
     def build_ui(self) -> None:
         self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(2, weight=1)
+        self.root.rowconfigure(1, weight=1)
 
-        header = ttk.Frame(self.root, padding=16)
+        header = ttk.Frame(self.root, padding=16, style="Surface.TFrame")
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(0, weight=1)
 
-        title_row = ttk.Frame(header)
+        title_row = ttk.Frame(header, style="Surface.TFrame")
         title_row.grid(row=0, column=0, sticky="ew")
         title_row.columnconfigure(0, weight=1)
 
@@ -672,16 +677,20 @@ class CleanupApp:
             title_row,
             text=APP_NAME,
             font=("Segoe UI", 18, "bold"),
+            style="Title.TLabel",
         ).grid(row=0, column=0, sticky="w")
+        self.theme_button = ttk.Button(title_row, text="Dark Mode", command=self.toggle_theme)
+        self.theme_button.grid(row=0, column=1, sticky="e", padx=(0, 12))
         ttk.Label(
             title_row,
             textvariable=self.version_var,
-            foreground="#2f5f8f",
-        ).grid(row=0, column=1, sticky="e")
+            style="Version.TLabel",
+        ).grid(row=0, column=2, sticky="e")
 
         ttk.Label(
             header,
             text="Use the standard tab for generic temp cleanup. Advanced caches are optional and may be rebuilt after cleanup.",
+            style="Body.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(6, 0))
 
         options = ttk.LabelFrame(self.root, text="Cleanup Targets", padding=12)
@@ -692,13 +701,8 @@ class CleanupApp:
         notebook = ttk.Notebook(options)
         notebook.grid(row=0, column=0, sticky="nsew")
 
-        standard_tab = ttk.Frame(notebook, padding=14)
-        advanced_tab = ttk.Frame(notebook, padding=14)
-        standard_tab.columnconfigure(0, weight=1)
-        advanced_tab.columnconfigure(0, weight=1)
-
-        notebook.add(standard_tab, text="Standard")
-        notebook.add(advanced_tab, text="Advanced Cache")
+        standard_tab = self.create_scrollable_tab(notebook, "Standard")
+        advanced_tab = self.create_scrollable_tab(notebook, "Advanced Cache")
 
         standard_targets = [target for target in self.targets if target.category == "standard"]
         advanced_targets = [target for target in self.targets if target.category == "advanced"]
@@ -712,16 +716,15 @@ class CleanupApp:
                 "Close browsers and game launchers first for better results."
             ),
             wraplength=760,
-            foreground="#7a4a10",
+            style="Warning.TLabel",
         ).grid(row=0, column=0, sticky="w", pady=(0, 12))
         self.build_target_rows(advanced_tab, advanced_targets, start_row=1)
 
-        actions = ttk.Frame(self.root, padding=(16, 12))
-        actions.grid(row=2, column=0, sticky="nsew")
+        actions = ttk.Frame(self.root, padding=(16, 12), style="Surface.TFrame")
+        actions.grid(row=2, column=0, sticky="ew")
         actions.columnconfigure(0, weight=1)
-        actions.rowconfigure(4, weight=1)
 
-        button_bar = ttk.Frame(actions)
+        button_bar = ttk.Frame(actions, style="Surface.TFrame")
         button_bar.grid(row=0, column=0, sticky="ew")
         button_bar.columnconfigure(3, weight=1)
 
@@ -734,7 +737,7 @@ class CleanupApp:
         self.progress = ttk.Progressbar(button_bar, mode="indeterminate", length=180)
         self.progress.grid(row=0, column=2, sticky="w", padx=(14, 0))
 
-        preset_bar = ttk.Frame(actions)
+        preset_bar = ttk.Frame(actions, style="Surface.TFrame")
         preset_bar.grid(row=1, column=0, sticky="w", pady=(10, 6))
 
         standard_button = ttk.Button(preset_bar, text="Standard Only", command=lambda: self.apply_preset("standard"))
@@ -749,35 +752,69 @@ class CleanupApp:
         none_button.grid(row=0, column=2, sticky="w", padx=(8, 0))
         self.preset_buttons.append(none_button)
 
-        ttk.Label(actions, textvariable=self.summary_var).grid(row=2, column=0, sticky="w", pady=(4, 4))
-        ttk.Label(actions, textvariable=self.update_var, foreground="#7a4a10").grid(
+        ttk.Label(actions, textvariable=self.summary_var, style="Body.TLabel").grid(row=2, column=0, sticky="w", pady=(4, 4))
+        ttk.Label(actions, textvariable=self.update_var, style="Warning.TLabel").grid(
             row=3,
             column=0,
             sticky="w",
             pady=(0, 8),
         )
 
-        self.log_box = ScrolledText(actions, wrap="word", font=("Consolas", 10), height=16)
-        self.log_box.grid(row=4, column=0, sticky="nsew")
+        self.log_box = ScrolledText(actions, wrap="word", font=("Consolas", 10), height=8)
+        self.log_box.grid(row=4, column=0, sticky="ew")
         self.log_box.configure(state="disabled")
 
-        status_bar = ttk.Frame(self.root, padding=(16, 0, 16, 16))
+        status_bar = ttk.Frame(self.root, padding=(16, 0, 16, 16), style="Surface.TFrame")
         status_bar.grid(row=3, column=0, sticky="ew")
         status_bar.columnconfigure(0, weight=1)
 
-        ttk.Label(status_bar, textvariable=self.status_var).grid(row=0, column=0, sticky="w")
+        ttk.Label(status_bar, textvariable=self.status_var, style="Body.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(
             status_bar,
             text="Run as administrator for best results.",
-            foreground="#8a5a00",
+            style="Warning.TLabel",
         ).grid(row=0, column=1, sticky="e")
+
+    def create_scrollable_tab(self, notebook: ttk.Notebook, title: str) -> ttk.Frame:
+        container = ttk.Frame(notebook, style="Panel.TFrame")
+        container.columnconfigure(0, weight=1)
+        container.rowconfigure(0, weight=1)
+
+        canvas = tk.Canvas(container, borderwidth=0, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        inner = ttk.Frame(canvas, padding=14, style="Panel.TFrame")
+
+        window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        def update_scrollregion(_event=None) -> None:
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def resize_inner(event) -> None:
+            canvas.itemconfigure(window_id, width=event.width)
+
+        def on_mousewheel(event) -> None:
+            step = -1 if event.delta > 0 else 1
+            canvas.yview_scroll(step, "units")
+
+        inner.bind("<Configure>", update_scrollregion)
+        canvas.bind("<Configure>", resize_inner)
+        inner.bind("<Enter>", lambda _event: canvas.bind_all("<MouseWheel>", on_mousewheel))
+        inner.bind("<Leave>", lambda _event: canvas.unbind_all("<MouseWheel>"))
+
+        canvas.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        notebook.add(container, text=title)
+
+        self.scroll_canvases.append(canvas)
+        return inner
 
     def build_target_rows(self, parent: ttk.Frame, targets: list[CleanupTarget], start_row: int = 0) -> None:
         for index, target in enumerate(targets, start=start_row):
             variable = tk.BooleanVar(value=target.default_selected)
             self.target_vars[target.key] = variable
 
-            row_frame = ttk.Frame(parent)
+            row_frame = ttk.Frame(parent, style="Panel.TFrame")
             row_frame.grid(row=index, column=0, sticky="ew", pady=(0, 12))
             row_frame.columnconfigure(0, weight=1)
 
@@ -792,15 +829,113 @@ class CleanupApp:
             ttk.Label(
                 row_frame,
                 text=target.location,
-                foreground="#2f5f8f",
                 wraplength=760,
+                style="Path.TLabel",
             ).grid(row=1, column=0, sticky="w", padx=(24, 0))
             ttk.Label(
                 row_frame,
                 text=target.description,
-                foreground="#555555",
                 wraplength=760,
+                style="Muted.TLabel",
             ).grid(row=2, column=0, sticky="w", padx=(24, 0), pady=(2, 0))
+
+    def get_palette(self) -> dict[str, str]:
+        if self.dark_mode:
+            return {
+                "bg": "#11161d",
+                "surface": "#18212b",
+                "panel": "#1d2833",
+                "input": "#0f151c",
+                "fg": "#edf2f7",
+                "muted": "#a5b2be",
+                "accent": "#7cb4ff",
+                "warning": "#f0bc63",
+                "border": "#33404d",
+                "tab_selected": "#24303c",
+                "button_bg": "#24303c",
+                "button_active": "#314153",
+                "button_fg": "#edf2f7",
+            }
+        return {
+            "bg": "#f5f7fa",
+            "surface": "#f5f7fa",
+            "panel": "#ffffff",
+            "input": "#ffffff",
+            "fg": "#121820",
+            "muted": "#5b6774",
+            "accent": "#2f5f8f",
+            "warning": "#8a5a00",
+            "border": "#cfd7e0",
+            "tab_selected": "#ffffff",
+            "button_bg": "#f4f7fb",
+            "button_active": "#e7edf6",
+            "button_fg": "#121820",
+        }
+
+    def apply_theme(self) -> None:
+        palette = self.get_palette()
+
+        if self.dark_mode:
+            if self.style.theme_use() != "clam":
+                self.style.theme_use("clam")
+        else:
+            if self.style.theme_use() != self.default_ttk_theme:
+                self.style.theme_use(self.default_ttk_theme)
+
+        self.root.configure(background=palette["bg"])
+
+        self.style.configure(".", background=palette["surface"], foreground=palette["fg"])
+        self.style.configure("TFrame", background=palette["surface"])
+        self.style.configure("Surface.TFrame", background=palette["surface"])
+        self.style.configure("Panel.TFrame", background=palette["panel"])
+        self.style.configure("TLabel", background=palette["surface"], foreground=palette["fg"])
+        self.style.configure("Title.TLabel", background=palette["surface"], foreground=palette["fg"])
+        self.style.configure("Body.TLabel", background=palette["surface"], foreground=palette["fg"])
+        self.style.configure("Muted.TLabel", background=palette["panel"], foreground=palette["muted"])
+        self.style.configure("Path.TLabel", background=palette["panel"], foreground=palette["accent"])
+        self.style.configure("Warning.TLabel", background=palette["surface"], foreground=palette["warning"])
+        self.style.configure("Version.TLabel", background=palette["surface"], foreground=palette["accent"])
+        self.style.configure("TLabelframe", background=palette["surface"], bordercolor=palette["border"])
+        self.style.configure("TLabelframe.Label", background=palette["surface"], foreground=palette["fg"])
+        self.style.configure("TNotebook", background=palette["panel"], borderwidth=0)
+        self.style.configure("TNotebook.Tab", background=palette["panel"], foreground=palette["fg"], padding=(10, 4))
+        self.style.map(
+            "TNotebook.Tab",
+            background=[("selected", palette["tab_selected"])],
+            foreground=[("selected", palette["fg"])],
+        )
+        self.style.configure("TCheckbutton", background=palette["panel"], foreground=palette["fg"])
+        self.style.map(
+            "TCheckbutton",
+            background=[("active", palette["panel"])],
+            foreground=[("disabled", palette["muted"])],
+        )
+        self.style.configure("TButton", background=palette["button_bg"], foreground=palette["button_fg"])
+        self.style.map(
+            "TButton",
+            background=[("active", palette["button_active"])],
+            foreground=[("disabled", palette["muted"])],
+        )
+        self.style.configure("Horizontal.TProgressbar", background=palette["accent"], troughcolor=palette["input"])
+        self.style.configure("Vertical.TScrollbar", background=palette["panel"], troughcolor=palette["surface"])
+
+        for canvas in self.scroll_canvases:
+            canvas.configure(background=palette["panel"])
+
+        self.log_box.configure(
+            background=palette["input"],
+            foreground=palette["fg"],
+            insertbackground=palette["fg"],
+            selectbackground=palette["accent"],
+            selectforeground=palette["bg"],
+            relief="flat",
+            borderwidth=1,
+        )
+        self.theme_button.configure(text="Light Mode" if self.dark_mode else "Dark Mode")
+
+    def toggle_theme(self) -> None:
+        self.dark_mode = not self.dark_mode
+        self.apply_theme()
 
     def append_log(self, message: str) -> None:
         self.log_box.configure(state="normal")
