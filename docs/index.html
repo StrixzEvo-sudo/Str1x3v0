@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>System Cleanup Utility</title>
+  <meta name="description" content="A lightweight Windows temp cleaner with built-in GitHub release updates.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <div class="glow glow-left"></div>
+    <div class="glow glow-right"></div>
+
+    <header class="hero">
+      <div class="hero-copy reveal">
+        <p class="eyebrow">Windows Temp Cleaner</p>
+        <h1>Clean temp files without turning it into a whole install process.</h1>
+        <p class="lead">
+          System Cleanup Utility clears the usual Windows temp folders, handles admin-only locations,
+          and can update itself from GitHub Releases.
+        </p>
+
+        <div class="cta-row">
+          <a id="download-link" class="button primary disabled" href="#" aria-disabled="true">Download Latest</a>
+          <a id="release-link" class="button secondary disabled" href="#" aria-disabled="true">View Releases</a>
+        </div>
+
+        <p id="release-status" class="status-pill" data-tone="pending">Waiting for repository details</p>
+      </div>
+
+      <aside class="release-card reveal delay-1">
+        <div class="card-topline">Latest Release</div>
+        <div class="release-version" id="release-version">Not published yet</div>
+        <div class="release-meta">
+          <span>Repository</span>
+          <strong id="repo-slug">your-github-username/system-cleanup-utility</strong>
+        </div>
+        <div class="release-meta">
+          <span>Updated</span>
+          <strong id="release-updated">Waiting for first release</strong>
+        </div>
+        <div class="release-meta">
+          <span>Distribution</span>
+          <strong>Single-file `.exe`</strong>
+        </div>
+      </aside>
+    </header>
+
+    <main>
+      <section class="feature-grid">
+        <article class="feature-card reveal delay-1">
+          <h2>Safe by default</h2>
+          <p>It clears folder contents while keeping the folders themselves, and it skips symlinks and reparse points.</p>
+        </article>
+        <article class="feature-card reveal delay-2">
+          <h2>Built for Windows</h2>
+          <p>It targets user temp, LocalLow temp, Windows temp, and Prefetch, with elevation support where needed.</p>
+        </article>
+        <article class="feature-card reveal delay-3">
+          <h2>Updates without a launcher</h2>
+          <p>The `.exe` checks GitHub Releases at startup and can swap itself out when a newer build exists.</p>
+        </article>
+      </section>
+
+      <section class="workflow reveal">
+        <div class="workflow-copy">
+          <p class="eyebrow">Use It</p>
+          <h2>Three steps on the user side.</h2>
+          <ol>
+            <li>Download the latest `.exe` from this page.</li>
+            <li>Run it as administrator when prompted.</li>
+            <li>Pick the folders you want cleaned and start the cleanup.</li>
+          </ol>
+        </div>
+        <div class="workflow-note">
+          <p>The first time you clean Prefetch, app launches may feel slightly slower until Windows rebuilds that cache.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Hosted on GitHub Pages. Releases are served through GitHub Releases.</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
