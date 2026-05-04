@@ -1,6 +1,6 @@
-# System Cleanup Utility
+# FreshStart Utility
 
-Small Windows temp-cleaning utility packaged as a standalone `.exe`, with a GitHub Pages site and GitHub Releases updater.
+FreshStart Utility is a portable Windows cleanup app packaged as a standalone `.exe`, with a GitHub Pages site and GitHub Releases updater.
 
 ## What It Cleans
 

@@ -28,6 +28,30 @@ function setStatus(message, tone) {
   status.dataset.tone = tone;
 }
 
+function formatSize(bytes) {
+  if (!bytes || Number.isNaN(bytes)) {
+    return "Unknown";
+  }
+
+  let value = bytes;
+  const units = ["B", "KB", "MB", "GB"];
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function firstUsefulLine(text) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+}
+
 async function loadReleaseInfo() {
   const repo = deriveRepoFromPagesUrl();
   const downloadLink = document.getElementById("download-link");
@@ -35,9 +59,11 @@ async function loadReleaseInfo() {
   const repoSlug = document.getElementById("repo-slug");
   const releaseVersion = document.getElementById("release-version");
   const releaseUpdated = document.getElementById("release-updated");
+  const releaseSize = document.getElementById("release-size");
+  const releaseNote = document.getElementById("release-note");
 
   if (!repo) {
-    setStatus("Publish this folder with GitHub Pages to activate live download links.", "warn");
+    setStatus("Publish this folder with GitHub Pages to activate the live download button.", "warn");
     return;
   }
 
@@ -61,6 +87,9 @@ async function loadReleaseInfo() {
     }
 
     const release = await response.json();
+    const asset = release.assets.find((item) => item.name === assetName)
+      || release.assets.find((item) => item.name.toLowerCase().endsWith(".exe"));
+
     releaseVersion.textContent = release.tag_name || "Latest release";
     releaseUpdated.textContent = release.published_at
       ? new Date(release.published_at).toLocaleDateString(undefined, {
@@ -68,14 +97,19 @@ async function loadReleaseInfo() {
           month: "short",
           day: "numeric"
         })
-      : "Published date unavailable";
+      : "Unknown";
+    releaseSize.textContent = asset ? formatSize(asset.size) : "Unknown";
+    releaseNote.textContent = firstUsefulLine(release.body || "")
+      || "Latest FreshStart build is ready to download.";
 
     setButtonState(downloadLink, true, latestDownload);
-    setStatus("Latest release is ready to download.", "ok");
+    setStatus(`Live now: ${release.tag_name || "latest build"} is ready to download.`, "ok");
   } catch (error) {
     releaseVersion.textContent = "No release yet";
-    releaseUpdated.textContent = "Publish a tagged release to activate downloads";
-    setStatus("The site is live. Publish a GitHub release to activate the download button.", "warn");
+    releaseUpdated.textContent = "Publish a release";
+    releaseSize.textContent = "Unavailable";
+    releaseNote.textContent = "The page is live. Publish a GitHub release to activate the full download experience.";
+    setStatus("The page is live. Publish a release to activate the download button.", "warn");
   }
 }
 

@@ -3,84 +3,171 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>System Cleanup Utility</title>
-  <meta name="description" content="A lightweight Windows temp cleaner with built-in GitHub release updates.">
+  <title>FreshStart Utility</title>
+  <meta name="description" content="FreshStart Utility is a zero-bloat Windows cleanup app for temp files, browser cache, shader cache, crash dumps, and update leftovers.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="page-shell">
-    <div class="glow glow-left"></div>
-    <div class="glow glow-right"></div>
+    <div class="ambient ambient-a"></div>
+    <div class="ambient ambient-b"></div>
+    <div class="grid-mask"></div>
 
-    <header class="hero">
-      <div class="hero-copy reveal">
-        <p class="eyebrow">Windows Temp Cleaner</p>
-        <h1>Clean temp files without turning it into a whole install process.</h1>
+    <header class="hero reveal">
+      <div class="hero-copy">
+        <p class="eyebrow">Zero-Bloat Windows Cleanup</p>
+        <h1>FreshStart turns cleanup into a before-and-after flex.</h1>
         <p class="lead">
-          System Cleanup Utility clears the usual Windows temp folders, goes further with optional cache cleanup,
-          handles admin-only locations, and can update itself from GitHub Releases.
+          One bold little `.exe` for temp junk, browser leftovers, shader cache, update residue,
+          crash dumps, and the kind of space recovery people actually screenshot.
         </p>
+
+        <div class="hero-chips">
+          <span class="chip">Single-file `.exe`</span>
+          <span class="chip chip-hot">Deep cache cleanup</span>
+          <span class="chip">Live cleanup logs</span>
+        </div>
 
         <div class="cta-row">
           <a id="download-link" class="button primary disabled" href="#" aria-disabled="true">Download Latest</a>
           <a id="release-link" class="button secondary disabled" href="#" aria-disabled="true">View Releases</a>
         </div>
 
-        <p id="release-status" class="status-pill" data-tone="pending">Waiting for repository details</p>
+        <p id="release-status" class="status-pill" data-tone="pending">Checking the latest drop</p>
       </div>
 
-      <aside class="release-card reveal delay-1">
-        <div class="card-topline">Latest Release</div>
-        <div class="release-version" id="release-version">Not published yet</div>
-        <div class="release-meta">
-          <span>Repository</span>
-          <strong id="repo-slug">your-github-username/system-cleanup-utility</strong>
-        </div>
-        <div class="release-meta">
-          <span>Updated</span>
-          <strong id="release-updated">Waiting for first release</strong>
-        </div>
-        <div class="release-meta">
-          <span>Distribution</span>
-          <strong>Single-file `.exe`</strong>
-        </div>
-      </aside>
+      <div class="hero-stack reveal delay-1">
+        <section class="visual-card">
+          <div class="orb orb-a"></div>
+          <div class="orb orb-b"></div>
+          <div class="mock-window">
+            <div class="mock-bar">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="mock-header">
+              <div>
+                <small>Deep Cache Mode</small>
+                <strong>Cleanup forecast</strong>
+              </div>
+              <b>12.4 GB</b>
+            </div>
+            <div class="mock-meter">
+              <div class="meter-fill"></div>
+            </div>
+            <div class="mock-list">
+              <div><span>Browser cache</span><b>3.8 GB</b></div>
+              <div><span>Shader cache</span><b>2.1 GB</b></div>
+              <div><span>Windows temp</span><b>1.4 GB</b></div>
+              <div><span>Crash dumps</span><b>786 MB</b></div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="release-card">
+          <div class="release-top">
+            <p class="card-topline">Latest Drop</p>
+            <div class="release-version" id="release-version">Loading</div>
+            <p class="release-note" id="release-note">Waiting for release details.</p>
+          </div>
+
+          <div class="release-grid">
+            <div class="release-item">
+              <span>Repository</span>
+              <strong id="repo-slug">StrixzEvo-sudo/Str1x3v0</strong>
+            </div>
+            <div class="release-item">
+              <span>Published</span>
+              <strong id="release-updated">Loading</strong>
+            </div>
+            <div class="release-item">
+              <span>Package Size</span>
+              <strong id="release-size">Loading</strong>
+            </div>
+            <div class="release-item">
+              <span>Distribution</span>
+              <strong>Portable `.exe`</strong>
+            </div>
+          </div>
+        </aside>
+      </div>
     </header>
 
     <main>
-      <section class="feature-grid">
-        <article class="feature-card reveal delay-1">
-          <h2>Safe by default</h2>
-          <p>It clears folder contents while keeping the folders themselves, and it skips symlinks and reparse points.</p>
+      <section class="speed-strip reveal delay-1">
+        <article class="strip-card">
+          <strong>No installer maze</strong>
+          <p>Download it, run it, clean up, move on.</p>
         </article>
-        <article class="feature-card reveal delay-2">
-          <h2>Advanced cache targets</h2>
-          <p>It can optionally clean browser cache, shader cache, Store app temp cache, thumbnail DBs, and Windows error reports.</p>
+        <article class="strip-card">
+          <strong>Deep when you want it</strong>
+          <p>Quick Sweep for the basics, Deep Cache for the satisfying reclaim.</p>
         </article>
-        <article class="feature-card reveal delay-3">
-          <h2>Updates without a launcher</h2>
-          <p>The `.exe` checks GitHub Releases at startup and can swap itself out when a newer build exists.</p>
+        <article class="strip-card">
+          <strong>Nothing hidden</strong>
+          <p>Live logs and explicit target lists keep the cleanup transparent.</p>
         </article>
       </section>
 
-      <section class="workflow reveal">
+      <section class="feature-grid">
+        <article class="feature-card reveal delay-1">
+          <p class="mini-kicker">Why it pops</p>
+          <h2>It feels instant.</h2>
+          <p>People love fast wins. FreshStart is built around visible cleanup, simple controls, and a single-file download.</p>
+        </article>
+        <article class="feature-card reveal delay-2">
+          <p class="mini-kicker">What it targets</p>
+          <h2>More than temp junk.</h2>
+          <p>Browser cache, shader cache, update leftovers, crash dumps, thumbnails, icons, and Store app temp residue.</p>
+        </article>
+        <article class="feature-card reveal delay-3">
+          <p class="mini-kicker">Why it spreads</p>
+          <h2>It creates shareable numbers.</h2>
+          <p>The best cleanup tools give people a satisfying "I just got 9 GB back" moment. This is built for that.</p>
+        </article>
+      </section>
+
+      <section class="audience-grid reveal">
+        <article class="audience-card">
+          <p class="mini-kicker">For gamers</p>
+          <h2>Clear shader junk and launcher leftovers.</h2>
+          <p>Good for machines that slowly fill up with cache from games, updates, and browsers running in the background.</p>
+        </article>
+        <article class="audience-card">
+          <p class="mini-kicker">For creators</p>
+          <h2>Clean without the usual sketchy cleaner vibe.</h2>
+          <p>Use it when render boxes, laptops, or daily-driver PCs start feeling cluttered and storage gets tight.</p>
+        </article>
+        <article class="audience-card">
+          <p class="mini-kicker">For power users</p>
+          <h2>Portable, direct, and update-aware.</h2>
+          <p>No account, no bundled nonsense, no mystery dashboard. Just cleanup targets, logs, and releases.</p>
+        </article>
+      </section>
+
+      <section class="workflow reveal delay-1">
         <div class="workflow-copy">
-          <p class="eyebrow">Use It</p>
-          <h2>Three steps on the user side.</h2>
+          <p class="eyebrow">How It Feels</p>
+          <h2>Download. Sweep. Screenshot the freed space.</h2>
           <ol>
-            <li>Download the latest `.exe` from this page.</li>
-            <li>Run it as administrator when prompted.</li>
-            <li>Pick standard temp targets or enable advanced cache cleanup, then start the cleanup.</li>
+            <li>Grab the latest `.exe` from this page.</li>
+            <li>Run Quick Sweep for temp cleanup or switch to Deep Cache for a heavier pass.</li>
+            <li>Watch the logs, check the reclaimed space, and move on without an installer trail.</li>
           </ol>
         </div>
         <div class="workflow-note">
-          <p>Close browsers and launchers before running advanced cache cleanup. Prefetch and other caches are rebuilt as Windows and apps need them.</p>
+          <strong>Best results:</strong>
+          <p>Close browsers, launchers, and game clients before Deep Cache mode. Some caches are rebuilt by Windows and apps after cleanup.</p>
         </div>
       </section>
     </main>
 
     <footer class="footer">
-      <p>Hosted on GitHub Pages. Releases are served through GitHub Releases.</p>
+      <p>FreshStart Utility is hosted on GitHub Pages and distributed through GitHub Releases.</p>
     </footer>
   </div>
 

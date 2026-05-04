@@ -19,8 +19,9 @@ from tkinter import messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
 
-APP_NAME = "System Cleanup Utility"
-APP_VERSION = "0.2.1"
+APP_NAME = "FreshStart Utility"
+APP_TAGLINE = "Reclaim space. Cut junk. Keep the speed."
+APP_VERSION = "0.3.0"
 DEFAULT_ASSET_NAME = "SystemCleanupUtility.exe"
 UPDATE_CONFIG_FILE = "release_config.json"
 WINDOWS_REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
@@ -623,7 +624,7 @@ class CleanupApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title(APP_NAME)
-        self.root.geometry("900x760")
+        self.root.geometry("980x820")
         self.root.minsize(780, 620)
         self.style = ttk.Style(root)
         self.default_ttk_theme = "vista" if "vista" in self.style.theme_names() else self.style.theme_use()
@@ -640,11 +641,11 @@ class CleanupApp:
         self.worker_thread: threading.Thread | None = None
         self.action_running = False
         self.update_check_running = False
-        self.dark_mode = False
+        self.dark_mode = True
 
         self.status_var = tk.StringVar(value="Ready.")
         self.summary_var = tk.StringVar(
-            value="Standard temp targets are preselected. Advanced caches are optional and may be rebuilt by Windows or apps."
+            value="One file. No installer maze. Start with quick cleanup or dive into deeper cache targets when you want the extra win."
         )
         self.version_var = tk.StringVar(value=f"Version {APP_VERSION}")
         self.update_var = tk.StringVar(value=self.get_initial_update_text())
@@ -665,35 +666,57 @@ class CleanupApp:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(1, weight=1)
 
-        header = ttk.Frame(self.root, padding=16, style="Surface.TFrame")
+        header = ttk.Frame(self.root, padding=(18, 18, 18, 10), style="Hero.TFrame")
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(0, weight=1)
 
-        title_row = ttk.Frame(header, style="Surface.TFrame")
+        title_row = ttk.Frame(header, style="Hero.TFrame")
         title_row.grid(row=0, column=0, sticky="ew")
         title_row.columnconfigure(0, weight=1)
 
+        brand_stack = ttk.Frame(title_row, style="Hero.TFrame")
+        brand_stack.grid(row=0, column=0, sticky="w")
+        brand_stack.columnconfigure(0, weight=1)
+
         ttk.Label(
-            title_row,
+            brand_stack,
             text=APP_NAME,
-            font=("Segoe UI", 18, "bold"),
             style="Title.TLabel",
         ).grid(row=0, column=0, sticky="w")
-        self.theme_button = ttk.Button(title_row, text="Dark Mode", command=self.toggle_theme)
-        self.theme_button.grid(row=0, column=1, sticky="e", padx=(0, 12))
         ttk.Label(
-            title_row,
+            brand_stack,
+            text=APP_TAGLINE,
+            style="SubTitle.TLabel",
+        ).grid(row=1, column=0, sticky="w", pady=(4, 0))
+        ttk.Label(
+            brand_stack,
+            text="Made for fast wins: temp junk, browser leftovers, shader cache, crash dumps, and update residue without mystery bloat.",
+            style="HeroBody.TLabel",
+            wraplength=720,
+        ).grid(row=2, column=0, sticky="w", pady=(10, 0))
+
+        chip_row = ttk.Frame(brand_stack, style="Hero.TFrame")
+        chip_row.grid(row=3, column=0, sticky="w", pady=(14, 0))
+        ttk.Label(chip_row, text="Single-file .exe", style="Chip.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(chip_row, text="Deep cache cleanup", style="ChipAccent.TLabel").grid(
+            row=0,
+            column=1,
+            sticky="w",
+            padx=(8, 0),
+        )
+        ttk.Label(chip_row, text="Live cleanup logs", style="Chip.TLabel").grid(row=0, column=2, sticky="w", padx=(8, 0))
+
+        control_stack = ttk.Frame(title_row, style="Hero.TFrame")
+        control_stack.grid(row=0, column=1, sticky="ne", padx=(18, 0))
+        self.theme_button = ttk.Button(control_stack, text="Light Mode", command=self.toggle_theme, style="Secondary.TButton")
+        self.theme_button.grid(row=0, column=0, sticky="e")
+        ttk.Label(
+            control_stack,
             textvariable=self.version_var,
             style="Version.TLabel",
-        ).grid(row=0, column=2, sticky="e")
+        ).grid(row=1, column=0, sticky="e", pady=(10, 0))
 
-        ttk.Label(
-            header,
-            text="Use the standard tab for generic temp cleanup. Advanced caches are optional and may be rebuilt after cleanup.",
-            style="Body.TLabel",
-        ).grid(row=1, column=0, sticky="w", pady=(6, 0))
-
-        options = ttk.LabelFrame(self.root, text="Cleanup Targets", padding=12)
+        options = ttk.LabelFrame(self.root, text="Cleanup Deck", padding=12)
         options.grid(row=1, column=0, sticky="nsew", padx=16)
         options.columnconfigure(0, weight=1)
         options.rowconfigure(0, weight=1)
@@ -701,8 +724,8 @@ class CleanupApp:
         notebook = ttk.Notebook(options)
         notebook.grid(row=0, column=0, sticky="nsew")
 
-        standard_tab = self.create_scrollable_tab(notebook, "Standard")
-        advanced_tab = self.create_scrollable_tab(notebook, "Advanced Cache")
+        standard_tab = self.create_scrollable_tab(notebook, "Quick Sweep")
+        advanced_tab = self.create_scrollable_tab(notebook, "Deep Cache")
 
         standard_targets = [target for target in self.targets if target.category == "standard"]
         advanced_targets = [target for target in self.targets if target.category == "advanced"]
@@ -712,11 +735,11 @@ class CleanupApp:
         ttk.Label(
             advanced_tab,
             text=(
-                "Advanced targets can reclaim more space, but some apps may need to rebuild cache data on next launch. "
-                "Close browsers and game launchers first for better results."
+                "Deep Cache mode can reclaim more space, but apps may need to rebuild some cache data after cleanup. "
+                "Close browsers and launchers first if you want the cleanest result."
             ),
             wraplength=760,
-            style="Warning.TLabel",
+            style="PanelWarning.TLabel",
         ).grid(row=0, column=0, sticky="w", pady=(0, 12))
         self.build_target_rows(advanced_tab, advanced_targets, start_row=1)
 
@@ -728,10 +751,10 @@ class CleanupApp:
         button_bar.grid(row=0, column=0, sticky="ew")
         button_bar.columnconfigure(3, weight=1)
 
-        self.clean_button = ttk.Button(button_bar, text="Clean Selected", command=self.start_cleanup)
+        self.clean_button = ttk.Button(button_bar, text="Start Cleanup", command=self.start_cleanup, style="Accent.TButton")
         self.clean_button.grid(row=0, column=0, sticky="w")
 
-        self.update_button = ttk.Button(button_bar, text="Check for Updates", command=self.check_for_updates)
+        self.update_button = ttk.Button(button_bar, text="Update App", command=self.check_for_updates, style="Secondary.TButton")
         self.update_button.grid(row=0, column=1, sticky="w", padx=(10, 0))
 
         self.progress = ttk.Progressbar(button_bar, mode="indeterminate", length=180)
@@ -740,15 +763,30 @@ class CleanupApp:
         preset_bar = ttk.Frame(actions, style="Surface.TFrame")
         preset_bar.grid(row=1, column=0, sticky="w", pady=(10, 6))
 
-        standard_button = ttk.Button(preset_bar, text="Standard Only", command=lambda: self.apply_preset("standard"))
+        standard_button = ttk.Button(
+            preset_bar,
+            text="Quick Sweep",
+            command=lambda: self.apply_preset("standard"),
+            style="Secondary.TButton",
+        )
         standard_button.grid(row=0, column=0, sticky="w")
         self.preset_buttons.append(standard_button)
 
-        all_button = ttk.Button(preset_bar, text="Select All", command=lambda: self.apply_preset("all"))
+        all_button = ttk.Button(
+            preset_bar,
+            text="Go Nuclear",
+            command=lambda: self.apply_preset("all"),
+            style="Secondary.TButton",
+        )
         all_button.grid(row=0, column=1, sticky="w", padx=(8, 0))
         self.preset_buttons.append(all_button)
 
-        none_button = ttk.Button(preset_bar, text="Clear All", command=lambda: self.apply_preset("none"))
+        none_button = ttk.Button(
+            preset_bar,
+            text="Reset Picks",
+            command=lambda: self.apply_preset("none"),
+            style="Secondary.TButton",
+        )
         none_button.grid(row=0, column=2, sticky="w", padx=(8, 0))
         self.preset_buttons.append(none_button)
 
@@ -842,33 +880,43 @@ class CleanupApp:
     def get_palette(self) -> dict[str, str]:
         if self.dark_mode:
             return {
-                "bg": "#11161d",
-                "surface": "#18212b",
-                "panel": "#1d2833",
-                "input": "#0f151c",
-                "fg": "#edf2f7",
-                "muted": "#a5b2be",
-                "accent": "#7cb4ff",
-                "warning": "#f0bc63",
-                "border": "#33404d",
-                "tab_selected": "#24303c",
-                "button_bg": "#24303c",
-                "button_active": "#314153",
-                "button_fg": "#edf2f7",
+                "bg": "#080d17",
+                "surface": "#0e1524",
+                "panel": "#111b30",
+                "hero": "#0c1322",
+                "input": "#09101b",
+                "fg": "#f3f7ff",
+                "muted": "#93a3bf",
+                "accent": "#74e0ff",
+                "accent_soft": "#1f2d45",
+                "warning": "#ffbf5f",
+                "primary": "#ff7e47",
+                "primary_active": "#ff985f",
+                "button_text": "#fff8f2",
+                "border": "#253750",
+                "tab_selected": "#17243d",
+                "button_bg": "#17243d",
+                "button_active": "#223150",
+                "button_fg": "#edf5ff",
             }
         return {
-            "bg": "#f5f7fa",
-            "surface": "#f5f7fa",
+            "bg": "#f3efe7",
+            "surface": "#f8f4ec",
             "panel": "#ffffff",
+            "hero": "#fffaf3",
             "input": "#ffffff",
             "fg": "#121820",
             "muted": "#5b6774",
-            "accent": "#2f5f8f",
+            "accent": "#0e7aa4",
+            "accent_soft": "#edf5f8",
             "warning": "#8a5a00",
-            "border": "#cfd7e0",
+            "primary": "#d65a26",
+            "primary_active": "#e9713e",
+            "button_text": "#fff8f2",
+            "border": "#d5d1c9",
             "tab_selected": "#ffffff",
-            "button_bg": "#f4f7fb",
-            "button_active": "#e7edf6",
+            "button_bg": "#f4eee7",
+            "button_active": "#ece2d7",
             "button_fg": "#121820",
         }
 
@@ -888,17 +936,35 @@ class CleanupApp:
         self.style.configure("TFrame", background=palette["surface"])
         self.style.configure("Surface.TFrame", background=palette["surface"])
         self.style.configure("Panel.TFrame", background=palette["panel"])
+        self.style.configure("Hero.TFrame", background=palette["hero"])
         self.style.configure("TLabel", background=palette["surface"], foreground=palette["fg"])
-        self.style.configure("Title.TLabel", background=palette["surface"], foreground=palette["fg"])
-        self.style.configure("Body.TLabel", background=palette["surface"], foreground=palette["fg"])
+        self.style.configure("Title.TLabel", background=palette["hero"], foreground=palette["fg"], font=("Segoe UI", 24, "bold"))
+        self.style.configure("SubTitle.TLabel", background=palette["hero"], foreground=palette["accent"], font=("Segoe UI", 12, "bold"))
+        self.style.configure("Body.TLabel", background=palette["surface"], foreground=palette["fg"], font=("Segoe UI", 10))
+        self.style.configure("HeroBody.TLabel", background=palette["hero"], foreground=palette["fg"], font=("Segoe UI", 10))
         self.style.configure("Muted.TLabel", background=palette["panel"], foreground=palette["muted"])
         self.style.configure("Path.TLabel", background=palette["panel"], foreground=palette["accent"])
-        self.style.configure("Warning.TLabel", background=palette["surface"], foreground=palette["warning"])
-        self.style.configure("Version.TLabel", background=palette["surface"], foreground=palette["accent"])
+        self.style.configure("Warning.TLabel", background=palette["surface"], foreground=palette["warning"], font=("Segoe UI", 10, "bold"))
+        self.style.configure("PanelWarning.TLabel", background=palette["panel"], foreground=palette["warning"], font=("Segoe UI", 10, "bold"))
+        self.style.configure("Version.TLabel", background=palette["hero"], foreground=palette["accent"], font=("Segoe UI", 10, "bold"))
+        self.style.configure(
+            "Chip.TLabel",
+            background=palette["accent_soft"],
+            foreground=palette["fg"],
+            padding=(10, 6),
+            font=("Segoe UI", 9, "bold"),
+        )
+        self.style.configure(
+            "ChipAccent.TLabel",
+            background=palette["primary"],
+            foreground=palette["button_text"],
+            padding=(10, 6),
+            font=("Segoe UI", 9, "bold"),
+        )
         self.style.configure("TLabelframe", background=palette["surface"], bordercolor=palette["border"])
         self.style.configure("TLabelframe.Label", background=palette["surface"], foreground=palette["fg"])
         self.style.configure("TNotebook", background=palette["panel"], borderwidth=0)
-        self.style.configure("TNotebook.Tab", background=palette["panel"], foreground=palette["fg"], padding=(10, 4))
+        self.style.configure("TNotebook.Tab", background=palette["panel"], foreground=palette["fg"], padding=(14, 7), font=("Segoe UI", 9, "bold"))
         self.style.map(
             "TNotebook.Tab",
             background=[("selected", palette["tab_selected"])],
@@ -910,10 +976,22 @@ class CleanupApp:
             background=[("active", palette["panel"])],
             foreground=[("disabled", palette["muted"])],
         )
-        self.style.configure("TButton", background=palette["button_bg"], foreground=palette["button_fg"])
+        self.style.configure("TButton", background=palette["button_bg"], foreground=palette["button_fg"], padding=(14, 8))
+        self.style.configure("Accent.TButton", background=palette["primary"], foreground=palette["button_text"], padding=(18, 10))
+        self.style.configure("Secondary.TButton", background=palette["button_bg"], foreground=palette["button_fg"], padding=(14, 8))
         self.style.map(
             "TButton",
             background=[("active", palette["button_active"])],
+            foreground=[("disabled", palette["muted"])],
+        )
+        self.style.map(
+            "Accent.TButton",
+            background=[("active", palette["primary_active"]), ("disabled", palette["button_bg"])],
+            foreground=[("disabled", palette["muted"])],
+        )
+        self.style.map(
+            "Secondary.TButton",
+            background=[("active", palette["button_active"]), ("disabled", palette["button_bg"])],
             foreground=[("disabled", palette["muted"])],
         )
         self.style.configure("Horizontal.TProgressbar", background=palette["accent"], troughcolor=palette["input"])
@@ -982,10 +1060,10 @@ class CleanupApp:
     def start_cleanup(self) -> None:
         selected_targets = [target for target in self.targets if self.target_vars[target.key].get()]
         if not selected_targets:
-            messagebox.showinfo(APP_NAME, "Select at least one target.")
+            messagebox.showinfo(APP_NAME, "Pick at least one cleanup target.")
             return
 
-        confirmation = "This will permanently remove files from the selected temp and cache locations. Continue?"
+        confirmation = "This will permanently remove files from the selected temp and cache locations. Ready to run the cleanup?"
         if any(target.category == "advanced" for target in selected_targets):
             confirmation += (
                 "\n\nAdvanced caches were selected. Some apps may need to rebuild cache data after cleanup, "
@@ -999,7 +1077,7 @@ class CleanupApp:
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
 
-        self.summary_var.set("Cleanup in progress...")
+        self.summary_var.set("Cleanup in progress. FreshStart is clearing the selected targets now.")
         self.set_action_running(True, "Cleaning selected folders and cache targets...")
 
         self.worker_thread = threading.Thread(
@@ -1140,9 +1218,9 @@ class CleanupApp:
     def finish_cleanup(self, total: CleanupStats) -> None:
         self.set_action_running(False, "Cleanup complete.")
         self.summary_var.set(
-            "Completed: "
+            "Cleanup complete: "
             f"{total.deleted_files} files and {total.deleted_dirs} folders removed, "
-            f"{format_bytes(total.bytes_freed)} freed."
+            f"{format_bytes(total.bytes_freed)} reclaimed."
         )
 
         if total.failed_items:
