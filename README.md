@@ -4,10 +4,22 @@ Small Windows temp-cleaning utility packaged as a standalone `.exe`, with a GitH
 
 ## What It Cleans
 
+Standard targets:
+
 - Current user temp folder
 - `AppData\LocalLow\Temp`
 - `C:\Windows\Temp`
 - `C:\Windows\Prefetch`
+
+Advanced cache targets:
+
+- DirectX shader cache
+- Windows thumbnail and icon cache
+- Windows error reports and crash dumps
+- Delivery Optimization cache
+- Edge, Chrome, Brave, and Firefox cache folders
+- Microsoft Store app temp and web cache folders
+- Windows Update download cache
 
 ## What Is Included
 
@@ -22,6 +34,8 @@ Small Windows temp-cleaning utility packaged as a standalone `.exe`, with a GitH
 - Files that are currently in use may be skipped.
 - Reparse points and symlinks are skipped on purpose so cleanup stays inside the selected folders.
 - `Prefetch` is rebuilt by Windows over time after cleanup.
+- Browser and app caches are best cleaned while those apps are closed.
+- Some advanced caches are rebuilt by Windows or apps after cleanup.
 
 ## Local Build
 

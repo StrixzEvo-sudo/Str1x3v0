@@ -1,4 +1,5 @@
 import ctypes
+import glob
 import json
 import os
 import re
@@ -19,7 +20,7 @@ from tkinter.scrolledtext import ScrolledText
 
 
 APP_NAME = "System Cleanup Utility"
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.2.0"
 DEFAULT_ASSET_NAME = "SystemCleanupUtility.exe"
 UPDATE_CONFIG_FILE = "release_config.json"
 WINDOWS_REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
@@ -30,9 +31,11 @@ CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 class CleanupTarget:
     key: str
     label: str
-    path: Path
+    location: str
+    path_specs: tuple[str, ...]
     description: str
-    default_selected: bool = True
+    category: str = "standard"
+    default_selected: bool = False
 
 
 @dataclass
@@ -199,6 +202,10 @@ def candidate_contains_protected(candidate: str, protected_paths: set[str]) -> b
     return False
 
 
+def has_glob_magic(path_spec: str) -> bool:
+    return any(char in path_spec for char in "*?[]")
+
+
 def make_writable(path: str) -> None:
     try:
         os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
@@ -207,36 +214,176 @@ def make_writable(path: str) -> None:
 
 
 def get_targets() -> list[CleanupTarget]:
-    windir = Path(os.environ.get("WINDIR", r"C:\Windows"))
-    local_low = Path.home() / "AppData" / "LocalLow"
-    user_temp = Path(tempfile.gettempdir())
-
     return [
         CleanupTarget(
             key="user_temp",
             label="User Temp",
-            path=user_temp,
+            location="%TEMP%",
+            path_specs=("%TEMP%",),
             description="Clears the current user's temporary files.",
+            default_selected=True,
         ),
         CleanupTarget(
             key="local_low_temp",
             label="LocalLow Temp",
-            path=local_low / "Temp",
+            location="%USERPROFILE%\\AppData\\LocalLow\\Temp",
+            path_specs=("%USERPROFILE%\\AppData\\LocalLow\\Temp",),
             description="Clears temp files used by some games and older apps.",
+            default_selected=True,
         ),
         CleanupTarget(
             key="windows_temp",
             label="Windows Temp",
-            path=windir / "Temp",
+            location="%WINDIR%\\Temp",
+            path_specs=("%WINDIR%\\Temp",),
             description="Clears the shared Windows temp folder.",
+            default_selected=True,
         ),
         CleanupTarget(
             key="prefetch",
             label="Windows Prefetch",
-            path=windir / "Prefetch",
+            location="%WINDIR%\\Prefetch",
+            path_specs=("%WINDIR%\\Prefetch",),
             description="Clears prefetch cache files. Windows rebuilds them as needed.",
+            default_selected=True,
+        ),
+        CleanupTarget(
+            key="directx_shader_cache",
+            label="DirectX Shader Cache",
+            location="%LOCALAPPDATA%\\D3DSCache",
+            path_specs=("%LOCALAPPDATA%\\D3DSCache",),
+            description="Clears DirectX shader cache. Games and 3D apps rebuild it on demand.",
+            category="advanced",
+        ),
+        CleanupTarget(
+            key="thumbnail_icon_cache",
+            label="Thumbnail and Icon Cache",
+            location="%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer",
+            path_specs=(
+                "%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer\\thumbcache_*.db",
+                "%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer\\iconcache_*.db",
+            ),
+            description="Clears Explorer thumbnail and icon cache files. Windows rebuilds them gradually.",
+            category="advanced",
+        ),
+        CleanupTarget(
+            key="windows_error_reports",
+            label="Windows Error Reports",
+            location="%LOCALAPPDATA%\\CrashDumps and %ProgramData%\\Microsoft\\Windows\\WER",
+            path_specs=(
+                "%LOCALAPPDATA%\\CrashDumps",
+                "%ProgramData%\\Microsoft\\Windows\\WER\\ReportArchive",
+                "%ProgramData%\\Microsoft\\Windows\\WER\\ReportQueue",
+            ),
+            description="Removes crash dumps and queued error reports that can build up over time.",
+            category="advanced",
+        ),
+        CleanupTarget(
+            key="delivery_optimization_cache",
+            label="Delivery Optimization Cache",
+            location="%WINDIR%\\ServiceProfiles\\NetworkService\\AppData\\Local\\Microsoft\\Windows\\DeliveryOptimization\\Cache",
+            path_specs=(
+                "%WINDIR%\\ServiceProfiles\\NetworkService\\AppData\\Local\\Microsoft\\Windows\\DeliveryOptimization\\Cache",
+            ),
+            description="Clears cached Windows delivery optimization files used for update distribution.",
+            category="advanced",
+        ),
+        CleanupTarget(
+            key="edge_cache",
+            label="Microsoft Edge Cache",
+            location="%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*",
+            path_specs=(
+                "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\Cache\\Cache_Data",
+                "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\Code Cache",
+                "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\GPUCache",
+            ),
+            description="Clears Edge browser cache folders across detected profiles. Best results if Edge is closed.",
+            category="advanced",
+        ),
+        CleanupTarget(
+            key="chrome_cache",
+            label="Google Chrome Cache",
+            location="%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*",
+            path_specs=(
+                "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\Cache\\Cache_Data",
+                "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\Code Cache",
+                "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\GPUCache",
+            ),
+            description="Clears Chrome cache folders across detected profiles. Best results if Chrome is closed.",
+            category="advanced",
+        ),
+        CleanupTarget(
+            key="brave_cache",
+            label="Brave Cache",
+            location="%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\*",
+            path_specs=(
+                "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\*\\Cache\\Cache_Data",
+                "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\*\\Code Cache",
+                "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\*\\GPUCache",
+            ),
+            description="Clears Brave cache folders across detected profiles. Best results if Brave is closed.",
+            category="advanced",
+        ),
+        CleanupTarget(
+            key="firefox_cache",
+            label="Mozilla Firefox Cache",
+            location="%LOCALAPPDATA%\\Mozilla\\Firefox\\Profiles\\*",
+            path_specs=(
+                "%LOCALAPPDATA%\\Mozilla\\Firefox\\Profiles\\*\\cache2",
+                "%LOCALAPPDATA%\\Mozilla\\Firefox\\Profiles\\*\\startupCache",
+            ),
+            description="Clears Firefox cache folders across detected profiles. Best results if Firefox is closed.",
+            category="advanced",
+        ),
+        CleanupTarget(
+            key="store_app_temp_cache",
+            label="Store App Temp Cache",
+            location="%LOCALAPPDATA%\\Packages\\*",
+            path_specs=(
+                "%LOCALAPPDATA%\\Packages\\*\\AC\\INetCache",
+                "%LOCALAPPDATA%\\Packages\\*\\AC\\Temp",
+                "%LOCALAPPDATA%\\Packages\\*\\TempState",
+            ),
+            description="Clears temp and web cache folders for Microsoft Store apps without touching app data.",
+            category="advanced",
+        ),
+        CleanupTarget(
+            key="windows_update_downloads",
+            label="Windows Update Download Cache",
+            location="%WINDIR%\\SoftwareDistribution\\Download",
+            path_specs=("%WINDIR%\\SoftwareDistribution\\Download",),
+            description="Clears cached Windows Update packages. Future updates may need to download them again.",
+            category="advanced",
         ),
     ]
+
+
+def resolve_target_roots(target: CleanupTarget) -> list[Path]:
+    resolved: list[Path] = []
+    exact_candidates: list[Path] = []
+    seen: set[str] = set()
+
+    for path_spec in target.path_specs:
+        expanded = os.path.expandvars(path_spec)
+        matches = [Path(match) for match in glob.glob(expanded)]
+        if matches:
+            for match in matches:
+                match_key = normalized(match)
+                if match_key not in seen:
+                    seen.add(match_key)
+                    resolved.append(match)
+            continue
+
+        if not has_glob_magic(expanded):
+            candidate = Path(expanded)
+            candidate_key = normalized(candidate)
+            if candidate_key not in seen:
+                seen.add(candidate_key)
+                exact_candidates.append(candidate)
+
+    if resolved:
+        return resolved
+    return exact_candidates
 
 
 def delete_entry(path: str, stats: CleanupStats, protected_paths: set[str], log) -> None:
@@ -293,22 +440,60 @@ def delete_entry(path: str, stats: CleanupStats, protected_paths: set[str], log)
         log(f"Could not remove file {path}: {exc}")
 
 
-def clean_directory(target: CleanupTarget, log) -> CleanupStats:
-    stats = CleanupStats(label=target.label, path=str(target.path))
-    protected_paths = get_protected_paths()
+def clean_root(root: Path, stats: CleanupStats, protected_paths: set[str], log) -> None:
+    root_str = str(root)
 
-    if not target.path.exists():
-        stats.missing_root = True
-        log(f"Folder not found: {target.path}")
-        return stats
+    if candidate_contains_protected(root_str, protected_paths):
+        stats.skipped_items += 1
+        log(f"Skipped protected path: {root_str}")
+        return
 
     try:
-        with os.scandir(target.path) as entries:
-            for entry in entries:
-                delete_entry(entry.path, stats, protected_paths, log)
+        entry_stat = os.lstat(root_str)
+    except FileNotFoundError:
+        return
     except OSError as exc:
         stats.failed_items += 1
-        log(f"Could not access {target.path}: {exc}")
+        log(f"Could not inspect {root_str}: {exc}")
+        return
+
+    if getattr(entry_stat, "st_file_attributes", 0) & WINDOWS_REPARSE_POINT:
+        stats.skipped_items += 1
+        log(f"Skipped reparse point: {root_str}")
+        return
+
+    if stat.S_ISDIR(entry_stat.st_mode):
+        try:
+            with os.scandir(root_str) as entries:
+                for entry in entries:
+                    delete_entry(entry.path, stats, protected_paths, log)
+        except OSError as exc:
+            stats.failed_items += 1
+            log(f"Could not access {root_str}: {exc}")
+        return
+
+    delete_entry(root_str, stats, protected_paths, log)
+
+
+def clean_target(target: CleanupTarget, log) -> CleanupStats:
+    stats = CleanupStats(label=target.label, path=target.location)
+    protected_paths = get_protected_paths()
+    roots = resolve_target_roots(target)
+
+    if not roots:
+        stats.missing_root = True
+        log(f"No matching paths found for {target.location}")
+        return stats
+
+    existing_roots = [root for root in roots if root.exists()]
+    if not existing_roots:
+        stats.missing_root = True
+        log(f"No matching paths found for {target.location}")
+        return stats
+
+    for root in existing_roots:
+        log(f"Resolved path: {root}")
+        clean_root(root, stats, protected_paths, log)
 
     return stats
 
@@ -438,12 +623,13 @@ class CleanupApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title(APP_NAME)
-        self.root.geometry("780x650")
-        self.root.minsize(720, 580)
+        self.root.geometry("900x760")
+        self.root.minsize(780, 620)
 
         self.targets = get_targets()
         self.target_vars: dict[str, tk.BooleanVar] = {}
         self.target_boxes: list[ttk.Checkbutton] = []
+        self.preset_buttons: list[ttk.Button] = []
         self.release_config = get_update_config()
         self.latest_release: ReleaseInfo | None = None
 
@@ -454,7 +640,7 @@ class CleanupApp:
 
         self.status_var = tk.StringVar(value="Ready.")
         self.summary_var = tk.StringVar(
-            value="Removes the contents of selected folders and keeps the folders themselves."
+            value="Standard temp targets are preselected. Advanced caches are optional and may be rebuilt by Windows or apps."
         )
         self.version_var = tk.StringVar(value=f"Version {APP_VERSION}")
         self.update_var = tk.StringVar(value=self.get_initial_update_text())
@@ -495,44 +681,45 @@ class CleanupApp:
 
         ttk.Label(
             header,
-            text="Select the cleanup targets below. Files currently in use may be skipped.",
+            text="Use the standard tab for generic temp cleanup. Advanced caches are optional and may be rebuilt after cleanup.",
         ).grid(row=1, column=0, sticky="w", pady=(6, 0))
 
-        options = ttk.LabelFrame(self.root, text="Cleanup Targets", padding=16)
+        options = ttk.LabelFrame(self.root, text="Cleanup Targets", padding=12)
         options.grid(row=1, column=0, sticky="nsew", padx=16)
         options.columnconfigure(0, weight=1)
+        options.rowconfigure(0, weight=1)
 
-        for index, target in enumerate(self.targets):
-            variable = tk.BooleanVar(value=target.default_selected)
-            self.target_vars[target.key] = variable
+        notebook = ttk.Notebook(options)
+        notebook.grid(row=0, column=0, sticky="nsew")
 
-            row_frame = ttk.Frame(options)
-            row_frame.grid(row=index, column=0, sticky="ew", pady=(0, 12))
-            row_frame.columnconfigure(0, weight=1)
+        standard_tab = ttk.Frame(notebook, padding=14)
+        advanced_tab = ttk.Frame(notebook, padding=14)
+        standard_tab.columnconfigure(0, weight=1)
+        advanced_tab.columnconfigure(0, weight=1)
 
-            box = ttk.Checkbutton(
-                row_frame,
-                text=target.label,
-                variable=variable,
-            )
-            box.grid(row=0, column=0, sticky="w")
-            self.target_boxes.append(box)
+        notebook.add(standard_tab, text="Standard")
+        notebook.add(advanced_tab, text="Advanced Cache")
 
-            ttk.Label(
-                row_frame,
-                text=str(target.path),
-                foreground="#2f5f8f",
-            ).grid(row=1, column=0, sticky="w", padx=(24, 0))
-            ttk.Label(
-                row_frame,
-                text=target.description,
-                foreground="#555555",
-            ).grid(row=2, column=0, sticky="w", padx=(24, 0), pady=(2, 0))
+        standard_targets = [target for target in self.targets if target.category == "standard"]
+        advanced_targets = [target for target in self.targets if target.category == "advanced"]
+
+        self.build_target_rows(standard_tab, standard_targets)
+
+        ttk.Label(
+            advanced_tab,
+            text=(
+                "Advanced targets can reclaim more space, but some apps may need to rebuild cache data on next launch. "
+                "Close browsers and game launchers first for better results."
+            ),
+            wraplength=760,
+            foreground="#7a4a10",
+        ).grid(row=0, column=0, sticky="w", pady=(0, 12))
+        self.build_target_rows(advanced_tab, advanced_targets, start_row=1)
 
         actions = ttk.Frame(self.root, padding=(16, 12))
         actions.grid(row=2, column=0, sticky="nsew")
         actions.columnconfigure(0, weight=1)
-        actions.rowconfigure(3, weight=1)
+        actions.rowconfigure(4, weight=1)
 
         button_bar = ttk.Frame(actions)
         button_bar.grid(row=0, column=0, sticky="ew")
@@ -547,16 +734,31 @@ class CleanupApp:
         self.progress = ttk.Progressbar(button_bar, mode="indeterminate", length=180)
         self.progress.grid(row=0, column=2, sticky="w", padx=(14, 0))
 
-        ttk.Label(actions, textvariable=self.summary_var).grid(row=1, column=0, sticky="w", pady=(10, 4))
+        preset_bar = ttk.Frame(actions)
+        preset_bar.grid(row=1, column=0, sticky="w", pady=(10, 6))
+
+        standard_button = ttk.Button(preset_bar, text="Standard Only", command=lambda: self.apply_preset("standard"))
+        standard_button.grid(row=0, column=0, sticky="w")
+        self.preset_buttons.append(standard_button)
+
+        all_button = ttk.Button(preset_bar, text="Select All", command=lambda: self.apply_preset("all"))
+        all_button.grid(row=0, column=1, sticky="w", padx=(8, 0))
+        self.preset_buttons.append(all_button)
+
+        none_button = ttk.Button(preset_bar, text="Clear All", command=lambda: self.apply_preset("none"))
+        none_button.grid(row=0, column=2, sticky="w", padx=(8, 0))
+        self.preset_buttons.append(none_button)
+
+        ttk.Label(actions, textvariable=self.summary_var).grid(row=2, column=0, sticky="w", pady=(4, 4))
         ttk.Label(actions, textvariable=self.update_var, foreground="#7a4a10").grid(
-            row=2,
+            row=3,
             column=0,
             sticky="w",
             pady=(0, 8),
         )
 
         self.log_box = ScrolledText(actions, wrap="word", font=("Consolas", 10), height=16)
-        self.log_box.grid(row=3, column=0, sticky="nsew")
+        self.log_box.grid(row=4, column=0, sticky="nsew")
         self.log_box.configure(state="disabled")
 
         status_bar = ttk.Frame(self.root, padding=(16, 0, 16, 16))
@@ -570,25 +772,66 @@ class CleanupApp:
             foreground="#8a5a00",
         ).grid(row=0, column=1, sticky="e")
 
+    def build_target_rows(self, parent: ttk.Frame, targets: list[CleanupTarget], start_row: int = 0) -> None:
+        for index, target in enumerate(targets, start=start_row):
+            variable = tk.BooleanVar(value=target.default_selected)
+            self.target_vars[target.key] = variable
+
+            row_frame = ttk.Frame(parent)
+            row_frame.grid(row=index, column=0, sticky="ew", pady=(0, 12))
+            row_frame.columnconfigure(0, weight=1)
+
+            box = ttk.Checkbutton(
+                row_frame,
+                text=target.label,
+                variable=variable,
+            )
+            box.grid(row=0, column=0, sticky="w")
+            self.target_boxes.append(box)
+
+            ttk.Label(
+                row_frame,
+                text=target.location,
+                foreground="#2f5f8f",
+                wraplength=760,
+            ).grid(row=1, column=0, sticky="w", padx=(24, 0))
+            ttk.Label(
+                row_frame,
+                text=target.description,
+                foreground="#555555",
+                wraplength=760,
+            ).grid(row=2, column=0, sticky="w", padx=(24, 0), pady=(2, 0))
+
     def append_log(self, message: str) -> None:
         self.log_box.configure(state="normal")
         self.log_box.insert("end", f"{message}\n")
         self.log_box.see("end")
         self.log_box.configure(state="disabled")
 
+    def apply_preset(self, mode: str) -> None:
+        for target in self.targets:
+            if mode == "standard":
+                selected = target.category == "standard"
+            elif mode == "all":
+                selected = True
+            else:
+                selected = False
+            self.target_vars[target.key].set(selected)
+
     def refresh_controls(self) -> None:
         target_state = "disabled" if self.action_running else "normal"
         button_state = "disabled" if self.action_running else "normal"
         update_state = "disabled"
 
-        if not self.action_running:
-            if not self.update_check_running and self.release_config.configured:
-                update_state = "normal"
+        if not self.action_running and not self.update_check_running and self.release_config.configured:
+            update_state = "normal"
 
         self.clean_button.configure(state=button_state)
         self.update_button.configure(state=update_state)
         for box in self.target_boxes:
             box.configure(state=target_state)
+        for button in self.preset_buttons:
+            button.configure(state=button_state)
 
         if self.action_running:
             self.progress.start(12)
@@ -607,10 +850,14 @@ class CleanupApp:
             messagebox.showinfo(APP_NAME, "Select at least one target.")
             return
 
-        if not messagebox.askyesno(
-            APP_NAME,
-            "This will permanently remove files from the selected temp folders. Continue?",
-        ):
+        confirmation = "This will permanently remove files from the selected temp and cache locations. Continue?"
+        if any(target.category == "advanced" for target in selected_targets):
+            confirmation += (
+                "\n\nAdvanced caches were selected. Some apps may need to rebuild cache data after cleanup, "
+                "and open browsers or launchers may prevent some files from being removed."
+            )
+
+        if not messagebox.askyesno(APP_NAME, confirmation):
             return
 
         self.log_box.configure(state="normal")
@@ -618,7 +865,7 @@ class CleanupApp:
         self.log_box.configure(state="disabled")
 
         self.summary_var.set("Cleanup in progress...")
-        self.set_action_running(True, "Cleaning selected folders...")
+        self.set_action_running(True, "Cleaning selected folders and cache targets...")
 
         self.worker_thread = threading.Thread(
             target=self.run_cleanup,
@@ -632,8 +879,8 @@ class CleanupApp:
         total = CleanupStats(label="Total", path="")
         for target in selected_targets:
             self.queue.put(("status", f"Cleaning {target.label}..."))
-            self.queue.put(("log", f"[{target.label}] {target.path}"))
-            stats = clean_directory(target, lambda message: self.queue.put(("log", message)))
+            self.queue.put(("log", f"[{target.label}] {target.location}"))
+            stats = clean_target(target, lambda message: self.queue.put(("log", message)))
             stats.merge_into(total)
             self.queue.put(("target_result", stats))
             self.queue.put(("log", ""))
@@ -745,7 +992,7 @@ class CleanupApp:
 
     def format_stats(self, stats: CleanupStats) -> str:
         if stats.missing_root:
-            return "Result: skipped missing folder."
+            return "Result: no matching files or folders were found."
         return (
             "Result: "
             f"{stats.deleted_files} files, "
@@ -764,7 +1011,10 @@ class CleanupApp:
         )
 
         if total.failed_items:
-            self.append_log(f"Finished with {total.failed_items} items that could not be removed.")
+            self.append_log(
+                f"Finished with {total.failed_items} items that could not be removed. "
+                "Close running apps and try again if you want a deeper cleanup."
+            )
 
     def handle_update_available(self, release: ReleaseInfo, silent: bool) -> None:
         self.update_check_running = False
